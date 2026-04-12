@@ -1,27 +1,29 @@
+import math
 import random
 
 import esper
 import pygame
 
-from src.create.prefab_creator import crear_cuadrado
+from src.create.prefab_creator import create_square
 from src.ecs.components.c_enemy_spawner import CEnemySpawner, EnemyTypeData, SpawnEvent
+from src.ecs.components.tags.c_tag_enemy import CTagEnemy
 
 
 def _build_spawn_velocity(enemy_type_data: EnemyTypeData) -> pygame.Vector2:
 	speed = random.uniform(enemy_type_data.velocity_min, enemy_type_data.velocity_max)
-	dir_x = random.choice((-1, 1))
-	dir_y = random.choice((-1, 1))
-	return pygame.Vector2(speed * dir_x, speed * dir_y)
+	angle = random.uniform(0.0, math.tau)
+	return pygame.Vector2(math.cos(angle), math.sin(angle)) * speed
 
 
 def _spawn_enemy(world: esper.World, event: SpawnEvent, enemy_type_data: EnemyTypeData) -> None:
-	crear_cuadrado(
+	enemy_entity= create_square(
 		world,
 		pos=pygame.Vector2(event.position.x, event.position.y),
 		vel=_build_spawn_velocity(enemy_type_data),
 		size=pygame.Vector2(enemy_type_data.size.x, enemy_type_data.size.y),
 		color=pygame.Color(enemy_type_data.color.r, enemy_type_data.color.g, enemy_type_data.color.b),
 	)
+	world.add_component(enemy_entity, CTagEnemy())
 
 
 def system_enemy_spawner(world: esper.World, delta_time: float) -> None:
