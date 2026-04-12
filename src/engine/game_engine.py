@@ -8,16 +8,23 @@ from src.create.prefab_creator import (
     create_enemy_spawner,
     create_input_player,
     create_player_square,
+    spawn_player_bullet,
 )
+from src.ecs.components.c_surface import CSurface
+from src.ecs.components.c_transform import CTransform
 from src.ecs.systems.s_collision_player_enemy import system_collision_player_enemy
+from src.ecs.systems.s_collision_enemy_bullet import system_collision_enemy_bullet
 from src.ecs.systems.s_movement import system_movement
 from src.ecs.systems.s_enemy_spawner import system_enemy_spawner
 from src.ecs.systems.s_rendering import system_rendering
 from src.ecs.systems.s_screen_bounce import system_screen_bounce
+from src.ecs.systems.s_screen_player import system_screen_player
+from src.ecs.systems.s_screen_bullet import system_screen_bullet
 from src.ecs.systems.s_input_player import system_input_player
 
 from src.ecs.components.c_velocity import CVelocity
 from src.ecs.components.c_input_command import CInputCommand, CommandPhase
+from src.ecs.components.tags.c_tag_bullet import CTagBullet
 
 
 class GameEngine:
@@ -27,6 +34,7 @@ class GameEngine:
         self.enemy_types_cfg = self._load_json_config("enemies.json")
         self.level_cfg = self._load_json_config("level_01.json")
         self.player_cfg = self._load_json_config("player.json")
+        self.bullet_cfg = self._load_json_config("bullet.json")
 
         window_size = self.window_cfg["size"]
         bg_color = self.window_cfg["bg_color"]
@@ -41,6 +49,7 @@ class GameEngine:
         self.framerate = self.window_cfg["framerate"]
         self.bg_color = pygame.Color(bg_color["r"], bg_color["g"], bg_color["b"])
         self.delta_time = 0
+        self._player_bullet_count = 0
 
         self.ecs_world = esper.World()
 
@@ -66,6 +75,12 @@ class GameEngine:
         self._player_c_v = self.ecs_world.component_for_entity(
             self._player_entity, CVelocity
         )
+        self._player_c_t = self.ecs_world.component_for_entity(
+            self._player_entity, CTransform
+        )
+        self._player_c_s = self.ecs_world.component_for_entity(
+            self._player_entity, CSurface
+        )
 
         create_enemy_spawner(self.ecs_world, self.enemy_types_cfg, self.level_cfg)
         create_input_player(self.ecs_world)
@@ -84,10 +99,14 @@ class GameEngine:
         system_enemy_spawner(self.ecs_world, self.delta_time)
         system_movement(self.ecs_world, self.delta_time)
         system_screen_bounce(self.ecs_world, self.screen)
+        system_screen_player(self.ecs_world, self.screen)
+        system_screen_bullet(self.ecs_world, self.screen)
         system_collision_player_enemy(
             self.ecs_world, self._player_entity, self.level_cfg
         )
+        system_collision_enemy_bullet(self.ecs_world)
         self.ecs_world._clear_dead_entities()
+        self._sync_bullet_count()
 
     def _draw(self):
         self.screen.fill(self.bg_color)
@@ -119,3 +138,18 @@ class GameEngine:
                 self._player_c_v.vel.y += self.player_cfg["input_velocity"]
             elif c_input.phase == CommandPhase.END:
                 self._player_c_v.vel.y -= self.player_cfg["input_velocity"]
+        elif c_input.name == "PLAYER_FIRE" and c_input.phase == CommandPhase.START:
+            if (
+                self._player_bullet_count
+                < self.level_cfg["player_spawn"]["max_bullets"]
+            ):
+                spawn_player_bullet(
+                    self.ecs_world,
+                    self._player_c_t,
+                    self._player_c_s,
+                    self.bullet_cfg,
+                )
+                self._player_bullet_count += 1
+
+    def _sync_bullet_count(self) -> None:
+        self._player_bullet_count = len(self.ecs_world.get_component(CTagBullet))
