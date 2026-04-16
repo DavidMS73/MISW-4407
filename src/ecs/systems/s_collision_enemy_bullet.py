@@ -17,9 +17,11 @@ def system_collision_enemy_bullet(world: esper.World) -> None:
     enemies_to_delete: set[int] = set()
 
     for bullet_entity, (bullet_surface, bullet_transform, _) in bullet_items:
-        bullet_rect = bullet_surface.surf.get_rect(topleft=bullet_transform.pos)
+        bullet_rect = CSurface.get_area_relative(bullet_surface.area, bullet_transform.pos)
+
         for enemy_entity, (enemy_surface, enemy_transform, _) in enemy_items:
-            enemy_rect = enemy_surface.surf.get_rect(topleft=enemy_transform.pos)
+            enemy_rect = CSurface.get_area_relative(enemy_surface.area, enemy_transform.pos)
+
             if bullet_rect.colliderect(enemy_rect):
                 bullets_to_delete.add(bullet_entity)
                 enemies_to_delete.add(enemy_entity)

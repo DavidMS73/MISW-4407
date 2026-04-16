@@ -6,8 +6,7 @@ import pygame
 
 @dataclass
 class EnemyTypeData:
-	size: pygame.Vector2
-	color: pygame.Color
+	image: pygame.image
 	velocity_min: float
 	velocity_max: float
 

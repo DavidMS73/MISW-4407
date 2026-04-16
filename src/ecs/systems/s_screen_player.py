@@ -12,8 +12,8 @@ def system_screen_player(world: esper.World, screen: pygame.Surface) -> None:
     components = world.get_components(CTransform, CSurface, CTagPlayer)
 
     for _, (c_transform, c_surface, _) in components:
-        max_x = screen_w - c_surface.surf.get_width()
-        max_y = screen_h - c_surface.surf.get_height()
+        max_x = screen_w - c_surface.area.width
+        max_y = screen_h - c_surface.area.height
 
         if c_transform.pos.x < 0:
             c_transform.pos.x = 0

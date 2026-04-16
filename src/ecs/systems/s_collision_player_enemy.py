@@ -14,10 +14,11 @@ def system_collision_player_enemy(
     pl_t = world.component_for_entity(player_entity, CTransform)
     pl_s = world.component_for_entity(player_entity, CSurface)
 
-    pl_rect = pl_s.surf.get_rect(topleft=pl_t.pos)
+    pl_rect = CSurface.get_area_relative(pl_s.area, pl_t.pos)
 
     for enemy_entity, (c_s, c_t, _) in components:
-        enemy_rect = c_s.surf.get_rect(topleft=c_t.pos)
+        enemy_rect = CSurface.get_area_relative(c_s.area, c_t.pos)
+
         if enemy_rect.colliderect(pl_rect):
             world.delete_entity(enemy_entity)
             pl_t.pos.x = (

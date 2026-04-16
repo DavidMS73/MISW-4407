@@ -15,7 +15,7 @@ def system_screen_bounce(world: esper.World, screen: pygame.Surface):
     c_surface: CSurface
     c_tag_enemy: CTagEnemy
     for _, (c_transform, c_velocity, c_surface, c_tag_enemy) in components:
-        cuad_rect = c_surface.surf.get_rect(topleft=c_transform.pos)
+        cuad_rect = CSurface.get_area_relative(c_surface.area, c_transform.pos)
 
         if (cuad_rect.left < screen_rect.left) or (cuad_rect.right > screen_rect.right):
             c_velocity.vel.x *= -1
