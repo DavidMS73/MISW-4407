@@ -18,7 +18,7 @@ def system_player_state(world: esper.World) -> None:
 def _do_idle_state(
     c_velocity: CVelocity, c_animation: CAnimation, c_player_state: CPlayerState
 ) -> None:
-    _set_animation(c_animation, 1)
+    c_animation.set_animation("IDLE")
     if c_velocity.vel.magnitude_squared() > 0:
         c_player_state.state = PlayerState.MOVE
 
@@ -26,14 +26,6 @@ def _do_idle_state(
 def _do_move_state(
     c_velocity: CVelocity, c_animation: CAnimation, c_player_state: CPlayerState
 ) -> None:
-    _set_animation(c_animation, 0)
+    c_animation.set_animation("MOVE")
     if c_velocity.vel.magnitude_squared() <= 0:
         c_player_state.state = PlayerState.IDLE
-
-
-def _set_animation(c_animation: CAnimation, num_anim: int) -> None:
-    if c_animation.curr_anim == num_anim:
-        return
-    c_animation.curr_anim = num_anim
-    c_animation.curr_anim_time = 0
-    c_animation.curr_frame = c_animation.animations_list[c_animation.curr_anim].start

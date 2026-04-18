@@ -9,6 +9,11 @@ class EnemyTypeData:
 	image: pygame.image
 	velocity_min: float
 	velocity_max: float
+	animations: dict | None = None
+	velocity_chase: float | None = None
+	velocity_return: float | None = None
+	distance_start_chase: float | None = None
+	distance_start_return: float | None = None
 
 
 @dataclass

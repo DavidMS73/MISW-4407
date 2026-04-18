@@ -6,6 +6,7 @@ import pygame
 
 from src.ecs.components.c_animation import CAnimation
 from src.ecs.components.c_enemy_spawner import CEnemySpawner, EnemyTypeData, SpawnEvent
+from src.ecs.components.c_hunter_state import CHunterState, HunterMode
 from src.ecs.components.c_player_state import CPlayerState
 from src.ecs.components.c_surface import CSurface
 from src.ecs.components.c_transform import CTransform
@@ -13,6 +14,7 @@ from src.ecs.components.c_velocity import CVelocity
 from src.ecs.components.c_input_command import CInputCommand
 from src.ecs.components.tags.c_tag_bullet import CTagBullet
 from src.ecs.components.tags.c_tag_enemy import CTagEnemy
+from src.ecs.components.tags.c_tag_explosion import CTagExplosion
 from src.ecs.components.tags.c_tag_player import CTagPlayer
 
 
@@ -43,13 +45,27 @@ def create_sprite(
     return sprite_entity
 
 
+def _setup_animation_area(c_surface: CSurface, c_animation: CAnimation) -> None:
+    curr_animation = c_animation.animations_list[c_animation.curr_anim]
+    frame_width = int(c_surface.surf.get_width() / c_animation.number_frames)
+    c_surface.area.w = frame_width
+    c_surface.area.h = c_surface.surf.get_height()
+    c_surface.area.x = frame_width * curr_animation.start
+    c_surface.area.y = 0
+
+
 def _build_enemy_types(enemy_types_cfg: dict) -> dict[str, EnemyTypeData]:
     enemy_types: dict[str, EnemyTypeData] = {}
     for enemy_type, enemy_data in enemy_types_cfg.items():
         enemy_types[enemy_type] = EnemyTypeData(
             image=pygame.image.load(enemy_data["image"]).convert_alpha(),
-            velocity_min=enemy_data["velocity_min"],
-            velocity_max=enemy_data["velocity_max"],
+            velocity_min=enemy_data.get("velocity_min", 0),
+            velocity_max=enemy_data.get("velocity_max", 0),
+            animations=enemy_data.get("animations"),
+            velocity_chase=enemy_data.get("velocity_chase"),
+            velocity_return=enemy_data.get("velocity_return"),
+            distance_start_chase=enemy_data.get("distance_start_chase"),
+            distance_start_return=enemy_data.get("distance_start_return"),
         )
     return enemy_types
 
@@ -77,13 +93,42 @@ def _build_spawn_velocity(enemy_type_data: EnemyTypeData) -> pygame.Vector2:
 def _spawn_enemy(
     world: esper.World, event: SpawnEvent, enemy_type_data: EnemyTypeData
 ) -> None:
+    number_frames = 1
+    if enemy_type_data.animations is not None:
+        number_frames = enemy_type_data.animations["number_frames"]
+
+    frame_width = enemy_type_data.image.get_width() / number_frames
+    frame_height = enemy_type_data.image.get_height()
+
     enemy_entity = create_sprite(
         world,
         pos=pygame.Vector2(event.position.x, event.position.y),
         vel=_build_spawn_velocity(enemy_type_data),
         surface=enemy_type_data.image,
     )
-    world.add_component(enemy_entity, CTagEnemy())
+    world.add_component(enemy_entity, CTagEnemy(event.enemy_type))
+
+    if enemy_type_data.animations is not None:
+        world.add_component(enemy_entity, CAnimation(enemy_type_data.animations))
+        c_surface = world.component_for_entity(enemy_entity, CSurface)
+        c_animation = world.component_for_entity(enemy_entity, CAnimation)
+        _setup_animation_area(c_surface, c_animation)
+
+    if event.enemy_type == "Hunter":
+        world.add_component(
+            enemy_entity,
+            CHunterState(
+                spawn_pos=pygame.Vector2(
+                    event.position.x + frame_width / 2,
+                    event.position.y + frame_height / 2,
+                ),
+                velocity_chase=enemy_type_data.velocity_chase,
+                velocity_return=enemy_type_data.velocity_return,
+                distance_start_chase=enemy_type_data.distance_start_chase,
+                distance_start_return=enemy_type_data.distance_start_return,
+                mode=HunterMode.IDLE,
+            ),
+        )
 
 
 def create_enemy_spawner(
@@ -101,19 +146,23 @@ def create_player_square(
     ecs_world: esper.World, player_cfg: dict, spawn_pos: dict
 ) -> int:
     player_sprite = pygame.image.load(player_cfg["image"]).convert_alpha()
-    size = player_sprite.get_size()
-    size = (size[0] / player_cfg["animations"]["number_frames"], size[1])
+    frame_width = player_sprite.get_width() / player_cfg["animations"]["number_frames"]
+    frame_height = player_sprite.get_height()
     player_entity = create_sprite(
         ecs_world,
         pos=pygame.Vector2(
-            spawn_pos["position"]["x"] - size[0] / 2,
-            spawn_pos["position"]["y"] - size[1] / 2,
+            spawn_pos["position"]["x"] - frame_width / 2,
+            spawn_pos["position"]["y"] - frame_height / 2,
         ),
         vel=pygame.Vector2(0, 0),
         surface=player_sprite,
     )
     ecs_world.add_component(player_entity, CTagPlayer())
     ecs_world.add_component(player_entity, CAnimation(player_cfg["animations"]))
+    _setup_animation_area(
+        ecs_world.component_for_entity(player_entity, CSurface),
+        ecs_world.component_for_entity(player_entity, CAnimation),
+    )
     ecs_world.add_component(player_entity, CPlayerState())
     return player_entity
 
@@ -148,9 +197,10 @@ def spawn_player_bullet(
 
     bullet_surface = pygame.image.load(bullet_cfg["image"]).convert_alpha()
     bullet_velocity = direction * bullet_cfg["velocity"]
+    bullet_area = bullet_surface.get_rect()
     bullet_pos = (
         player_center
-        - pygame.Vector2(bullet_surface.get_width(), bullet_surface.get_height()) / 2
+        - pygame.Vector2(bullet_area.w, bullet_area.h) / 2
     )
 
     return create_bullet_square(
@@ -159,6 +209,27 @@ def spawn_player_bullet(
         vel=bullet_velocity,
         surface=bullet_surface,
     )
+
+
+def create_explosion(ecs_world: esper.World, pos: pygame.Vector2, explosion_cfg: dict) -> int:
+    explosion_surface = pygame.image.load(explosion_cfg["image"]).convert_alpha()
+    number_frames = explosion_cfg["animations"]["number_frames"]
+    frame_width = explosion_surface.get_width() / number_frames
+    frame_height = explosion_surface.get_height()
+
+    explosion_entity = create_sprite(
+        ecs_world,
+        pos=pygame.Vector2(pos.x - frame_width / 2, pos.y - frame_height / 2),
+        vel=pygame.Vector2(0, 0),
+        surface=explosion_surface,
+    )
+    ecs_world.add_component(explosion_entity, CAnimation(explosion_cfg["animations"]))
+    _setup_animation_area(
+        ecs_world.component_for_entity(explosion_entity, CSurface),
+        ecs_world.component_for_entity(explosion_entity, CAnimation),
+    )
+    ecs_world.add_component(explosion_entity, CTagExplosion())
+    return explosion_entity
 
 
 def create_input_player(ecs_world: esper.World) -> None:

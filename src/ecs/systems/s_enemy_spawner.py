@@ -1,12 +1,7 @@
-import math
-import random
-
 import esper
-import pygame
 
-from src.create.prefab_creator import _spawn_enemy, create_square
-from src.ecs.components.c_enemy_spawner import CEnemySpawner, EnemyTypeData, SpawnEvent
-from src.ecs.components.tags.c_tag_enemy import CTagEnemy
+from src.create.prefab_creator import _spawn_enemy
+from src.ecs.components.c_enemy_spawner import CEnemySpawner
 
 
 def system_enemy_spawner(world: esper.World, delta_time: float) -> None:

@@ -1,12 +1,14 @@
 import esper
+import pygame
 
+from src.create.prefab_creator import create_explosion
 from src.ecs.components.c_surface import CSurface
 from src.ecs.components.c_transform import CTransform
 from src.ecs.components.tags.c_tag_enemy import CTagEnemy
 
 
 def system_collision_player_enemy(
-    world: esper.World, player_entity: int, level_cf: dict
+    world: esper.World, player_entity: int, level_cf: dict, explosion_cfg: dict
 ) -> None:
 
     components = world.get_components(CSurface, CTransform, CTagEnemy)
@@ -20,10 +22,13 @@ def system_collision_player_enemy(
         enemy_rect = CSurface.get_area_relative(c_s.area, c_t.pos)
 
         if enemy_rect.colliderect(pl_rect):
+            create_explosion(
+                world, pygame.Vector2(enemy_rect.centerx, enemy_rect.centery), explosion_cfg
+            )
             world.delete_entity(enemy_entity)
             pl_t.pos.x = (
-                level_cf["player_spawn"]["position"]["x"] - pl_s.surf.get_width() / 2
+                level_cf["player_spawn"]["position"]["x"] - pl_s.area.w / 2
             )
             pl_t.pos.y = (
-                level_cf["player_spawn"]["position"]["y"] - pl_s.surf.get_height() / 2
+                level_cf["player_spawn"]["position"]["y"] - pl_s.area.h / 2
             )
