@@ -18,3 +18,4 @@ class CHunterState:
     distance_start_chase: float
     distance_start_return: float
     mode: HunterMode = HunterMode.IDLE
+    sound_chase: str | None = None

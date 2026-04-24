@@ -16,6 +16,7 @@ from src.ecs.components.tags.c_tag_bullet import CTagBullet
 from src.ecs.components.tags.c_tag_enemy import CTagEnemy
 from src.ecs.components.tags.c_tag_explosion import CTagExplosion
 from src.ecs.components.tags.c_tag_player import CTagPlayer
+from src.engine.service_locator import ServiceLocator
 
 
 def create_square(
@@ -58,7 +59,9 @@ def _build_enemy_types(enemy_types_cfg: dict) -> dict[str, EnemyTypeData]:
     enemy_types: dict[str, EnemyTypeData] = {}
     for enemy_type, enemy_data in enemy_types_cfg.items():
         enemy_types[enemy_type] = EnemyTypeData(
-            image=pygame.image.load(enemy_data["image"]).convert_alpha(),
+            image=ServiceLocator.images_service.get(enemy_data["image"]),
+            sound=enemy_data.get("sound"),
+            sound_chase=enemy_data.get("sound_chase"),
             velocity_min=enemy_data.get("velocity_min", 0),
             velocity_max=enemy_data.get("velocity_max", 0),
             animations=enemy_data.get("animations"),
@@ -122,6 +125,7 @@ def _spawn_enemy(
                     event.position.x + frame_width / 2,
                     event.position.y + frame_height / 2,
                 ),
+                sound_chase=enemy_type_data.sound_chase,
                 velocity_chase=enemy_type_data.velocity_chase,
                 velocity_return=enemy_type_data.velocity_return,
                 distance_start_chase=enemy_type_data.distance_start_chase,
@@ -129,6 +133,8 @@ def _spawn_enemy(
                 mode=HunterMode.IDLE,
             ),
         )
+    else:
+        ServiceLocator.sounds_service.play(enemy_type_data.sound)
 
 
 def create_enemy_spawner(
@@ -145,7 +151,7 @@ def create_enemy_spawner(
 def create_player_square(
     ecs_world: esper.World, player_cfg: dict, spawn_pos: dict
 ) -> int:
-    player_sprite = pygame.image.load(player_cfg["image"]).convert_alpha()
+    player_sprite = ServiceLocator.images_service.get(player_cfg["image"])
     frame_width = player_sprite.get_width() / player_cfg["animations"]["number_frames"]
     frame_height = player_sprite.get_height()
     player_entity = create_sprite(
@@ -195,24 +201,25 @@ def spawn_player_bullet(
     else:
         direction = direction.normalize()
 
-    bullet_surface = pygame.image.load(bullet_cfg["image"]).convert_alpha()
+    bullet_surface = ServiceLocator.images_service.get(bullet_cfg["image"])
     bullet_velocity = direction * bullet_cfg["velocity"]
     bullet_area = bullet_surface.get_rect()
-    bullet_pos = (
-        player_center
-        - pygame.Vector2(bullet_area.w, bullet_area.h) / 2
-    )
+    bullet_pos = player_center - pygame.Vector2(bullet_area.w, bullet_area.h) / 2
 
-    return create_bullet_square(
+    entity = create_bullet_square(
         ecs_world,
         pos=bullet_pos,
         vel=bullet_velocity,
         surface=bullet_surface,
     )
+    ServiceLocator.sounds_service.play(bullet_cfg["sound"])
+    return entity
 
 
-def create_explosion(ecs_world: esper.World, pos: pygame.Vector2, explosion_cfg: dict) -> int:
-    explosion_surface = pygame.image.load(explosion_cfg["image"]).convert_alpha()
+def create_explosion(
+    ecs_world: esper.World, pos: pygame.Vector2, explosion_cfg: dict
+) -> int:
+    explosion_surface = ServiceLocator.images_service.get(explosion_cfg["image"])
     number_frames = explosion_cfg["animations"]["number_frames"]
     frame_width = explosion_surface.get_width() / number_frames
     frame_height = explosion_surface.get_height()
@@ -229,6 +236,7 @@ def create_explosion(ecs_world: esper.World, pos: pygame.Vector2, explosion_cfg:
         ecs_world.component_for_entity(explosion_entity, CAnimation),
     )
     ecs_world.add_component(explosion_entity, CTagExplosion())
+    ServiceLocator.sounds_service.play(explosion_cfg["sound"])
     return explosion_entity
 
 

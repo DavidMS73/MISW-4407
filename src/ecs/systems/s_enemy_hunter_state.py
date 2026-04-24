@@ -6,14 +6,13 @@ from src.ecs.components.c_hunter_state import CHunterState, HunterMode
 from src.ecs.components.c_surface import CSurface
 from src.ecs.components.c_transform import CTransform
 from src.ecs.components.c_velocity import CVelocity
+from src.engine.service_locator import ServiceLocator
 
 
 RETURN_ARRIVAL_EPSILON = 2.0
 
 
-def system_enemy_hunter_state(
-    world: esper.World, player_entity: int
-) -> None:
+def system_enemy_hunter_state(world: esper.World, player_entity: int) -> None:
     player_transform = world.component_for_entity(player_entity, CTransform)
     player_surface = world.component_for_entity(player_entity, CSurface)
     player_center = pygame.Vector2(
@@ -25,7 +24,13 @@ def system_enemy_hunter_state(
         CHunterState, CTransform, CVelocity, CAnimation, CSurface
     )
 
-    for _, (c_hunter_state, c_transform, c_velocity, c_animation, c_surface) in components:
+    for _, (
+        c_hunter_state,
+        c_transform,
+        c_velocity,
+        c_animation,
+        c_surface,
+    ) in components:
         enemy_center = pygame.Vector2(
             c_transform.pos.x + c_surface.area.w / 2,
             c_transform.pos.y + c_surface.area.h / 2,
@@ -81,6 +86,7 @@ def _do_enemy_hunter_idle(
     if distance_to_spawn >= c_hunter_state.distance_start_return:
         c_hunter_state.mode = HunterMode.RETURN
     elif distance_to_player <= c_hunter_state.distance_start_chase:
+        ServiceLocator.sounds_service.play(c_hunter_state.sound_chase)
         c_hunter_state.mode = HunterMode.CHASE
 
 

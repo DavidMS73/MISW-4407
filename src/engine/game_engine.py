@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -63,7 +64,7 @@ class GameEngine:
         with file_path.open("r", encoding="utf-8") as cfg_file:
             return json.load(cfg_file)
 
-    def run(self) -> None:
+    async def run(self) -> None:
         self._create()
         self.is_running = True
         while self.is_running:
@@ -71,6 +72,7 @@ class GameEngine:
             self._process_events()
             self._update()
             self._draw()
+            await asyncio.sleep(0)  # Yield control to the event loop
         self._clean()
 
     def _create(self):
