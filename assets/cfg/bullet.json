@@ -1,5 +1,5 @@
 {
-  "image": "assets/img/bullet.png",
-  "sound": "assets/snd/laser.ogg",
-  "velocity": 200
+    "sound" : "assets/snd/laser.ogg",
+    "image": "assets/img/bullet.png",
+    "velocity": 200
 }

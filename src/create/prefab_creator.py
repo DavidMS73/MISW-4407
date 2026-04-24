@@ -8,14 +8,17 @@ from src.ecs.components.c_animation import CAnimation
 from src.ecs.components.c_enemy_spawner import CEnemySpawner, EnemyTypeData, SpawnEvent
 from src.ecs.components.c_hunter_state import CHunterState, HunterMode
 from src.ecs.components.c_player_state import CPlayerState
+from src.ecs.components.c_player_special_defense import CPlayerSpecialDefense
 from src.ecs.components.c_surface import CSurface
 from src.ecs.components.c_transform import CTransform
+from src.ecs.components.c_ui_text import CUiText
 from src.ecs.components.c_velocity import CVelocity
 from src.ecs.components.c_input_command import CInputCommand
 from src.ecs.components.tags.c_tag_bullet import CTagBullet
 from src.ecs.components.tags.c_tag_enemy import CTagEnemy
 from src.ecs.components.tags.c_tag_explosion import CTagExplosion
 from src.ecs.components.tags.c_tag_player import CTagPlayer
+from src.ecs.components.tags.c_tag_shield import CTagShield
 from src.engine.service_locator import ServiceLocator
 
 
@@ -149,7 +152,7 @@ def create_enemy_spawner(
 
 
 def create_player_square(
-    ecs_world: esper.World, player_cfg: dict, spawn_pos: dict
+    ecs_world: esper.World, player_cfg: dict, spawn_pos: dict, special_defense_cfg: dict
 ) -> int:
     player_sprite = ServiceLocator.images_service.get(player_cfg["image"])
     frame_width = player_sprite.get_width() / player_cfg["animations"]["number_frames"]
@@ -170,6 +173,15 @@ def create_player_square(
         ecs_world.component_for_entity(player_entity, CAnimation),
     )
     ecs_world.add_component(player_entity, CPlayerState())
+    ecs_world.add_component(
+        player_entity,
+        CPlayerSpecialDefense(
+            duration=special_defense_cfg["duration"],
+            cooldown=special_defense_cfg["cooldown"],
+            radius=special_defense_cfg["radius"],
+            sound=special_defense_cfg["sound"],
+        ),
+    )
     return player_entity
 
 
@@ -240,12 +252,47 @@ def create_explosion(
     return explosion_entity
 
 
+def create_special_defense_shield(
+    ecs_world: esper.World,
+    player_transform: CTransform,
+    player_surface: CSurface,
+    shield_cfg: dict,
+) -> int:
+    shield_surface = ServiceLocator.images_service.get(shield_cfg["image"])
+    number_frames = shield_cfg["animations"]["number_frames"]
+    frame_width = shield_surface.get_width() / number_frames
+    frame_height = shield_surface.get_height()
+    player_center = pygame.Vector2(
+        player_transform.pos.x + player_surface.area.w / 2,
+        player_transform.pos.y + player_surface.area.h / 2,
+    )
+
+    shield_entity = create_sprite(
+        ecs_world,
+        pos=pygame.Vector2(
+            player_center.x - frame_width / 2,
+            player_center.y - frame_height / 2,
+        ),
+        vel=pygame.Vector2(0, 0),
+        surface=shield_surface,
+    )
+    ecs_world.add_component(shield_entity, CAnimation(shield_cfg["animations"]))
+    _setup_animation_area(
+        ecs_world.component_for_entity(shield_entity, CSurface),
+        ecs_world.component_for_entity(shield_entity, CAnimation),
+    )
+    ecs_world.add_component(shield_entity, CTagShield())
+    return shield_entity
+
+
 def create_input_player(ecs_world: esper.World) -> None:
     input_left = ecs_world.create_entity()
     input_right = ecs_world.create_entity()
     input_up = ecs_world.create_entity()
     input_down = ecs_world.create_entity()
     input_fire = ecs_world.create_entity()
+    input_pause = ecs_world.create_entity()
+    input_special = ecs_world.create_entity()
 
     ecs_world.add_component(
         input_left, CInputCommand(name="PLAYER_LEFT", key=pygame.K_LEFT)
@@ -260,3 +307,47 @@ def create_input_player(ecs_world: esper.World) -> None:
     ecs_world.add_component(
         input_fire, CInputCommand(name="PLAYER_FIRE", key=pygame.BUTTON_LEFT)
     )
+    ecs_world.add_component(
+        input_pause, CInputCommand(name="GAME_PAUSE", key=pygame.K_p)
+    )
+    ecs_world.add_component(
+        input_special, CInputCommand(name="PLAYER_SPECIAL", key=pygame.K_SPACE)
+    )
+
+
+def create_interface_texts(ecs_world: esper.World, interface_cfg: dict) -> dict[str, str]:
+    static_texts: dict[str, str] = {}
+
+    for text_cfg in interface_cfg["texts"]:
+        text_id = text_cfg["id"]
+        text = text_cfg.get("text", "")
+        color_cfg = text_cfg["color"]
+        color = pygame.Color(color_cfg["r"], color_cfg["g"], color_cfg["b"])
+        font = ServiceLocator.fonts_service.get(text_cfg["font"], text_cfg["size"])
+
+        text_entity = ecs_world.create_entity()
+        ecs_world.add_component(
+            text_entity,
+            CTransform(
+                pos=pygame.Vector2(
+                    text_cfg["position"]["x"],
+                    text_cfg["position"]["y"],
+                )
+            ),
+        )
+        ecs_world.add_component(
+            text_entity,
+            CUiText(
+                text_id=text_id,
+                font_path=text_cfg["font"],
+                size=text_cfg["size"],
+                color=color,
+                dynamic=text_cfg.get("dynamic", False),
+            ),
+        )
+        ecs_world.add_component(text_entity, CSurface.from_text(text, font, color))
+
+        if not text_cfg.get("dynamic", False):
+            static_texts[text_id] = text
+
+    return static_texts

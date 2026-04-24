@@ -15,6 +15,15 @@ class CSurface:
 
         return c_surface
 
+    @classmethod
+    def from_text(
+        cls,
+        text: str,
+        font: pygame.font.Font,
+        color: pygame.Color,
+    ) -> "CSurface":
+        return cls.from_surface(font.render(text, True, color))
+
     def get_area_relative(
         area: pygame.Rect, pos_topleft: pygame.Vector2
     ) -> pygame.Rect:

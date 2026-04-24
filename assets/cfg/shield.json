@@ -1,0 +1,18 @@
+{
+    "duration": 2.0,
+    "cooldown": 5.0,
+    "radius": 80,
+    "sound": "assets/snd/laser_special.ogg",
+    "image": "assets/img/shield.png",
+    "animations": {
+        "number_frames": 4,
+        "list": [
+            {
+                "name": "SHIELD",
+                "start": 0,
+                "end": 3,
+                "framerate": 16
+            }
+        ]
+    }
+}
