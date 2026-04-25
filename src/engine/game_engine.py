@@ -227,7 +227,7 @@ class GameEngine:
             "paused": self._is_paused,
             "special_active": special_defense.active_time_left,
             "special_cooldown": special_defense.cooldown_time_left,
-            "bullets": self._player_bullet_count,
+            "bullets": self.level_cfg["player_spawn"]["max_bullets"] - self._player_bullet_count,
         }
         system_ui_text(self.ecs_world, state, self._ui_static_texts)
 
